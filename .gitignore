@@ -1,0 +1,4 @@
+.env
+.primos-deploy/
+.primos-deploy.yaml
+state/

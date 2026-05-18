@@ -1,0 +1,6 @@
+apiVersion: primos-deploy/v1
+kind: Project
+metadata:
+  name: DEMO-DO-NOT-USE-1plus2
+defaults:
+  k3sVersion: v1.35.2+k3s1

@@ -1,0 +1,27 @@
+config:
+  primos-deploy:profile: dev
+  primos-deploy:debug: true
+  primos-deploy:clusterMode: single
+  primos-deploy:k3sVersion: v1.35.2+k3s1
+  primos-deploy:domain: k3s.demo.local
+  primos-deploy:servers:
+    - ip: "10.200.0.10"
+  primos-deploy:workers:
+    - ip: "10.200.0.20"
+    - ip: "10.200.0.21"
+  primos-deploy:ssh:
+    user: root
+    privateKeyPath: /root/.ssh/id_ed25519
+    hostKeyChecking: accept-new
+  primos-deploy:tls:
+    mode: selfsigned
+    certPath: ""
+    keyPath: ""
+  primos-deploy:argocd:
+    chartVersion: "9.4.10"
+    adminPasswordHash: "${ARGOCD_ADMIN_PASSWORD_HASH}"
+  primos-deploy:appsSets:
+    - name: demo-apps
+      repoUrl: https://github.com/Primos-one/primos-deploy-config-1plus2-app-pr.git
+      path: .
+      targetRevision: main
