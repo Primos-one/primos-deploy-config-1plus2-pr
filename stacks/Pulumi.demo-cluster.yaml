@@ -23,5 +23,9 @@ config:
   primos-deploy:appsSets:
     - name: demo-apps
       repoUrl: https://github.com/Primos-one/primos-deploy-config-1plus2-app-pr.git
-      path: .
+      # The ApplicationSet git files generator scans "<path>*/config.yaml";
+      # "." produced the never-matching glob ".*/config.yaml" (issue #442).
+      # "apps/" matches the apps repo layout (apps/<app>/config.yaml) and the
+      # loader default.
+      path: apps/
       targetRevision: main
