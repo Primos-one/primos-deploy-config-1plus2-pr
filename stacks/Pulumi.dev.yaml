@@ -1,0 +1,85 @@
+# Stack config for the v3-primos containerized 1s+2w dev topology
+# (primos-deploy-v3 issue #424 / epic #395 E5; design decisions #52/#53/#59).
+#
+# How this file is consumed (as-built primos-deploy v3):
+#   - Portal seeds THIS repo (pinned commit/tag) into the CP's embedded Gitea
+#     (#418): org `deploy-config`, repo name = URL basename, internal branch
+#     `main`. CP and deployment nodes never read external Git directly (#47).
+#   - The deployment-node agent pulls this file over the #384 config-pull
+#     transport as stacks/Pulumi.<stage>.yaml (stage "dev") and deploys in its
+#     LOCAL context (ADR-019).
+#   - The agent creates 1 server + 2 worker `primos-deploy-target` containers
+#     on the allocated docker resource (`primos`) — the node IPs below are the
+#     SOURCE of the Docker bridge network (`primos-deploy-<project>`, subnet
+#     derived from the first IP, conflict-shifted automatically). They are
+#     container IPs on that bridge, NOT host IPs (decision #52).
+#   - pulumi-up installs k3s INSIDE those containers; `profile: dev` derives
+#     `--snapshotter=native` (overlay-on-overlay, primos-deploy issue #215 /
+#     decision #52).
+#   - The k3s server container publishes host ports 6443 (kube API) + 443
+#     (Traefik) on `primos` (contract #463(б)); the infra nginx on `claw`
+#     upstreams the primos HOST IP (decision #59).
+config:
+  primos-deploy:profile: dev
+  primos-deploy:debug: true
+  primos-deploy:clusterMode: single
+  primos-deploy:k3sVersion: "v1.36.1+k3s1"
+
+  # Containerized 1s+2w: counts + container IPs (Docker bridge, decision #52).
+  primos-deploy:servers:
+    - ip: "10.200.0.10"
+  primos-deploy:workers:
+    - ip: "10.200.0.20"
+    - ip: "10.200.0.21"
+
+  # Deploy SSH key injection point (decision #53, primos-deploy #427):
+  # the per-cluster deploy PUBLIC key is injected into each target container's
+  # authorized_keys at provisioning; pulumi-up SSHes with the paired PRIVATE
+  # key. The path is an env seam: the agent stages the key at
+  # <DataDir>/host-creds/<resource_id>/deploy_key (delete-after, decision #45)
+  # and exports PRIMOS_DEPLOY_SSH_KEY_PATH; the default preserves the L0
+  # pre-provisioned-targets flow.
+  primos-deploy:ssh:
+    user: root
+    privateKeyPath: ${PRIMOS_DEPLOY_SSH_KEY_PATH:-/root/.ssh/id_ed25519}
+    hostKeyChecking: accept-new
+
+  # Internal cluster domain (in-cluster wildcard ingress hosts, selfsigned).
+  # Public access does NOT ride this domain — it rides publicKubeSni + the
+  # argocd-01 L7 vhost on the infra nginx (#428).
+  primos-deploy:domain: v3-primos.local
+  primos-deploy:tls:
+    mode: selfsigned
+    certPath: ""
+    keyPath: ""
+
+  # Public kube-API SNI (#428 / P-18): extra k3s --tls-san so the canonical
+  # kubeconfig (#430) addresses the cluster through the claw nginx stream SNI
+  # passthrough. S2 integrity invariant:
+  # nginx SNI route == k3s --tls-san SAN == kubeconfig server host.
+  primos-deploy:publicKubeSni: kube-01.cp.benadis.org
+
+  primos-deploy:argocd:
+    chartVersion: "9.4.10"
+    adminPasswordHash: "${ARGOCD_ADMIN_PASSWORD_HASH}"
+
+  primos-deploy:secretsStrategy: pulumi
+
+  # ArgoCD ApplicationSet → INTERNAL Gitea (decisions #47/#53): the cluster
+  # pulls apps from the CP's embedded-Gitea copy of THIS repo, seeded by
+  # Portal (#418). Org/repo/branch below are the AS-BUILT GiteaSeeder
+  # derivation (org `deploy-config`, repo = external URL basename, pinned
+  # commit force-pushed as internal `main`) — not the earlier design draft's
+  # primos-cp/v3-primos-config. The seeded repo is PRIVATE in the embedded
+  # Gitea → https auth via env seams (Gitea admin creds live in the encrypted
+  # Portal config #419 and arrive through the sealed .env half, ADR-002 —
+  # never committed here).
+  primos-deploy:appsSets:
+    - name: apps
+      repoUrl: "${INTERNAL_CONFIG_REPO_URL:-https://gitea.cp.benadis.org/deploy-config/primos-deploy-config-1plus2-pr.git}"
+      path: apps/
+      targetRevision: main
+      auth:
+        type: https
+        username: "${GITEA_ADMIN_USER:-gitea_admin}"
+        password: "${GITEA_ADMIN_PASSWORD}"

@@ -1,0 +1,19 @@
+# ApplicationSet entry: public Traefik route for the ArgoCD UI (v3-primos E5,
+# primos-deploy-v3 #424 / decision #53).
+#
+# Read by the ArgoCD ApplicationSet git files generator with pattern
+# "apps/*/config.yaml" (primos-deploy internal/components/bootstrap/appset.go).
+# Git-path app: plain manifests from THIS repo (the internal embedded-Gitea
+# copy the cluster's repo-secret already authenticates against).
+#
+# The repoURL is the internal embedded-Gitea location the Portal gitea-seed
+# (#418) produces: org `deploy-config`, repo = external URL basename, branch
+# `main` (the pinned commit is force-pushed as internal main). config.yaml is
+# consumed in-cluster — no env expansion here, the URL must be literal.
+name: argocd-public-route
+namespace: argocd
+step: "1"
+source:
+  repoURL: https://gitea.cp.benadis.org/deploy-config/primos-deploy-config-1plus2-pr.git
+  path: manifests/argocd-public-route
+  targetRevision: main

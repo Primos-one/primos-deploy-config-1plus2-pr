@@ -1,0 +1,48 @@
+# Traefik IngressRoute publishing the ArgoCD UI on the PUBLIC hostname
+# argocd-01.cp.benadis.org (v3-primos E5, primos-deploy-v3 #424 / #428 / P-18).
+#
+# Path of a request: infra nginx on `claw` terminates the *.cp.benadis.org
+# wildcard cert on the dedicated L7 vhost (ClusterRoute.ArgoCDServerName) and
+# proxies https://<primos-host-ip>:443 (proxy_ssl_verify off) with the Host
+# header preserved → the k3s server container's published :443 (contract
+# #463(б)) → in-cluster Traefik (websecure) → this route → argocd-server.
+#
+# argocd-server runs with server.insecure=true (TLS terminates at Traefik/nginx,
+# see internal/components/argocd/argocd.go) → plain HTTP port 80 upstream.
+# Mirrors the product's own IngressRoute shape (internal/components/argocd/
+# ingress.go) which serves the INTERNAL host argocd.<stack>.<domain>.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: argocd-public
+  namespace: argocd
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`argocd-01.cp.benadis.org`)
+      kind: Rule
+      services:
+        - name: argocd-server
+          port: 80
+  tls:
+    secretName: wildcard-tls
+---
+# gRPC counterpart for the argocd CLI (h2c), same public host.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: argocd-public-grpc
+  namespace: argocd
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`argocd-01.cp.benadis.org`) && Header(`Content-Type`, `application/grpc`)
+      kind: Rule
+      services:
+        - name: argocd-server
+          port: 80
+          scheme: h2c
+  tls:
+    secretName: wildcard-tls

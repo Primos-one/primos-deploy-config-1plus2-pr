@@ -1,0 +1,14 @@
+# dev-stage pool for the v3-primos contour (E5, primos-deploy-v3 #424).
+#
+# Shape: primos-deploy reconcile poolDoc (gitops-config.md §2.3,
+# internal/controlplane/reconcile/revision.go). The v3-primos segment-3
+# admission binds the `primos` docker resource into THIS pool
+# (inventory_pool_name=dev in tests/v3-primos-new/input/cold-start.input) —
+# the pool must be DEFINED in the seeded config repo, the drive never invents
+# one.
+kind: Pool
+metadata:
+  name: dev
+spec:
+  stage: dev
+  tags: []
